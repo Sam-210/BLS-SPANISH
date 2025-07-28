@@ -85,29 +85,6 @@ class NotificationSettings(BaseModel):
     notify_on_booking_success: bool = True
     notify_on_errors: bool = True
 
-# Visa Types Models
-class VisaType(str, Enum):
-    TOURIST = "Tourist Visa"
-    BUSINESS = "Business Visa"
-    STUDENT = "Student Visa"
-    WORK = "Work Visa"
-    FAMILY_REUNION = "Family Reunion Visa"
-
-class VisaSubType(str, Enum):
-    # Tourist/Business/Student subtypes
-    SHORT_STAY = "Short Stay"
-    LONG_STAY = "Long Stay"
-    # Work subtypes  
-    TEMPORARY_WORK = "Temporary Work"
-    PERMANENT_WORK = "Permanent Work"
-    # Family subtypes
-    SPOUSE_VISA = "Spouse Visa"
-    CHILD_VISA = "Child Visa"
-
-class AppointmentType(str, Enum):
-    INDIVIDUAL = "Individual"
-    FAMILY = "Family"
-
 # API Request/Response Models
 class StartSystemRequest(BaseModel):
     check_interval_minutes: Optional[int] = 2

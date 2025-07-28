@@ -165,6 +165,33 @@ async def appointment_monitoring_task():
 async def root():
     return {"message": "BLS2 - Automated Visa Appointment System", "version": "1.0.0"}
 
+@api_router.get("/visa-types")
+async def get_visa_types():
+    """Get available visa types and subtypes"""
+    visa_types_data = {
+        "Tourist Visa": ["Short Stay", "Long Stay"],
+        "Business Visa": ["Short Stay", "Long Stay"], 
+        "Student Visa": ["Short Stay", "Long Stay"],
+        "Work Visa": ["Temporary Work", "Permanent Work"],
+        "Family Reunion Visa": ["Spouse Visa", "Child Visa"]
+    }
+    
+    appointment_types = ["Individual", "Family"]
+    
+    return {
+        "visa_types": visa_types_data,
+        "appointment_types": appointment_types
+    }
+
+@api_router.get("/system/config")
+async def get_system_config():
+    """Get current system configuration"""
+    try:
+        config = await db.system_configs.find_one() or SystemConfig().dict()
+        return config
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get system config: {str(e)}")
+
 @api_router.get("/system/status", response_model=SystemStatusResponse)
 async def get_system_status():
     """Get current system status"""

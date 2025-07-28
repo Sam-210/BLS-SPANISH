@@ -194,6 +194,10 @@ async def start_system(request: StartSystemRequest, background_tasks: Background
         config_data = {
             "status": SystemStatus.RUNNING,
             "check_interval_minutes": request.check_interval_minutes,
+            "visa_type": request.visa_type,
+            "visa_subtype": request.visa_subtype,
+            "appointment_type": request.appointment_type,
+            "number_of_members": request.number_of_members,
             "updated_at": datetime.utcnow()
         }
         
@@ -207,7 +211,7 @@ async def start_system(request: StartSystemRequest, background_tasks: Background
         # Log system start
         await db.system_logs.insert_one(SystemLog(
             level=LogLevel.SUCCESS,
-            message=f"BLS2 system started with {request.check_interval_minutes} minute intervals",
+            message=f"BLS2 system started with {request.check_interval_minutes} minute intervals, Visa: {request.visa_type} ({request.visa_subtype}), {request.appointment_type} for {request.number_of_members} member(s)",
             step="SYSTEM_START"
         ).dict())
         

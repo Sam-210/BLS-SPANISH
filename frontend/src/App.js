@@ -149,6 +149,12 @@ function App() {
             <Route path="/logs" element={
               <SystemLogs websocket={websocket} />
             } />
+            <Route path="/applicants" element={
+              <ApplicantManagement />
+            } />
+            <Route path="/credentials" element={
+              <CredentialsManagement />
+            } />
           </Routes>
         </main>
 

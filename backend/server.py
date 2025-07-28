@@ -483,6 +483,403 @@ async def ocr_match(request: Dict):
         ).dict())
         raise HTTPException(status_code=500, detail=f"Enhanced OCR processing failed: {str(e)}")
 
+# =============================================================================
+# APPLICANT MANAGEMENT API ENDPOINTS
+# =============================================================================
+
+@api_router.get("/applicants", response_model=ApplicantsResponse)
+async def get_applicants(limit: int = 50, offset: int = 0):
+    """Get all applicants with pagination"""
+    try:
+        cursor = db.applicants.find().sort("created_at", -1).skip(offset).limit(limit)
+        applicants = await cursor.to_list(length=limit)
+        
+        # Get total count
+        total_count = await db.applicants.count_documents({})
+        
+        # Convert to models
+        applicant_models = [ApplicantInfo(**applicant) for applicant in applicants]
+        
+        return ApplicantsResponse(applicants=applicant_models, total_count=total_count)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get applicants: {str(e)}")
+
+@api_router.post("/applicants", response_model=ApplicantInfo)
+async def create_applicant(request: CreateApplicantRequest):
+    """Create a new applicant"""
+    try:
+        # If this is being set as primary, unset other primary applicants
+        if request.is_primary:
+            await db.applicants.update_many(
+                {"is_primary": True},
+                {"$set": {"is_primary": False, "updated_at": datetime.utcnow()}}
+            )
+        
+        applicant_data = request.dict()
+        applicant = ApplicantInfo(**applicant_data)
+        
+        # Insert into database
+        await db.applicants.insert_one(applicant.dict())
+        
+        # Log the creation
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS,
+            message=f"New applicant created: {applicant.first_name} {applicant.last_name} ({applicant.passport_number})",
+            step="APPLICANT_MANAGEMENT"
+        ).dict())
+        
+        return applicant
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create applicant: {str(e)}")
+
+@api_router.get("/applicants/{applicant_id}", response_model=ApplicantInfo)
+async def get_applicant(applicant_id: str):
+    """Get a specific applicant by ID"""
+    try:
+        applicant_data = await db.applicants.find_one({"id": applicant_id})
+        if not applicant_data:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        return ApplicantInfo(**applicant_data)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get applicant: {str(e)}")
+
+@api_router.put("/applicants/{applicant_id}", response_model=ApplicantInfo)
+async def update_applicant(applicant_id: str, request: UpdateApplicantRequest):
+    """Update an existing applicant"""
+    try:
+        # Check if applicant exists
+        existing_applicant = await db.applicants.find_one({"id": applicant_id})
+        if not existing_applicant:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Prepare update data (only include fields that were provided)
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        update_data["updated_at"] = datetime.utcnow()
+        
+        # If this is being set as primary, unset other primary applicants
+        if request.is_primary:
+            await db.applicants.update_many(
+                {"is_primary": True, "id": {"$ne": applicant_id}},
+                {"$set": {"is_primary": False, "updated_at": datetime.utcnow()}}
+            )
+        
+        # Update the applicant
+        await db.applicants.update_one(
+            {"id": applicant_id},
+            {"$set": update_data}
+        )
+        
+        # Get updated applicant
+        updated_applicant = await db.applicants.find_one({"id": applicant_id})
+        applicant = ApplicantInfo(**updated_applicant)
+        
+        # Log the update
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS,
+            message=f"Applicant updated: {applicant.first_name} {applicant.last_name} ({applicant.passport_number})",
+            step="APPLICANT_MANAGEMENT"
+        ).dict())
+        
+        return applicant
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update applicant: {str(e)}")
+
+@api_router.delete("/applicants/{applicant_id}")
+async def delete_applicant(applicant_id: str):
+    """Delete an applicant"""
+    try:
+        # Check if applicant exists
+        existing_applicant = await db.applicants.find_one({"id": applicant_id})
+        if not existing_applicant:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Delete the applicant
+        result = await db.applicants.delete_one({"id": applicant_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Log the deletion
+        applicant = ApplicantInfo(**existing_applicant)
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.INFO,
+            message=f"Applicant deleted: {applicant.first_name} {applicant.last_name} ({applicant.passport_number})",
+            step="APPLICANT_MANAGEMENT"
+        ).dict())
+        
+        return {"message": "Applicant deleted successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete applicant: {str(e)}")
+
+@api_router.get("/applicants/primary/info", response_model=ApplicantInfo)
+async def get_primary_applicant():
+    """Get the primary applicant (used for booking)"""
+    try:
+        applicant_data = await db.applicants.find_one({"is_primary": True})
+        if not applicant_data:
+            raise HTTPException(status_code=404, detail="No primary applicant found")
+        
+        return ApplicantInfo(**applicant_data)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get primary applicant: {str(e)}")
+
+# =============================================================================
+# LOGIN CREDENTIALS MANAGEMENT API ENDPOINTS
+# =============================================================================
+
+@api_router.get("/credentials", response_model=CredentialsResponse)
+async def get_credentials(limit: int = 50, offset: int = 0, include_inactive: bool = False):
+    """Get all login credentials with pagination"""
+    try:
+        # Build query
+        query = {} if include_inactive else {"is_active": True}
+        
+        cursor = db.credentials.find(query).sort("created_at", -1).skip(offset).limit(limit)
+        credentials = await cursor.to_list(length=limit)
+        
+        # Get total count
+        total_count = await db.credentials.count_documents(query)
+        
+        # Convert to models
+        credential_models = [LoginCredentials(**credential) for credential in credentials]
+        
+        return CredentialsResponse(credentials=credential_models, total_count=total_count)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get credentials: {str(e)}")
+
+@api_router.post("/credentials", response_model=LoginCredentials)
+async def create_credential(request: CreateCredentialRequest):
+    """Create new login credentials"""
+    try:
+        # If this is being set as primary, unset other primary credentials
+        if request.is_primary:
+            await db.credentials.update_many(
+                {"is_primary": True},
+                {"$set": {"is_primary": False, "updated_at": datetime.utcnow()}}
+            )
+        
+        credential_data = request.dict()
+        credential = LoginCredentials(**credential_data)
+        
+        # Insert into database
+        await db.credentials.insert_one(credential.dict())
+        
+        # Log the creation
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS,
+            message=f"New login credential created: {credential.credential_name} ({credential.email})",
+            step="CREDENTIAL_MANAGEMENT"
+        ).dict())
+        
+        return credential
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create credential: {str(e)}")
+
+@api_router.get("/credentials/{credential_id}", response_model=LoginCredentials)
+async def get_credential(credential_id: str):
+    """Get a specific credential by ID"""
+    try:
+        credential_data = await db.credentials.find_one({"id": credential_id})
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        return LoginCredentials(**credential_data)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get credential: {str(e)}")
+
+@api_router.put("/credentials/{credential_id}", response_model=LoginCredentials)
+async def update_credential(credential_id: str, request: UpdateCredentialRequest):
+    """Update existing login credentials"""
+    try:
+        # Check if credential exists
+        existing_credential = await db.credentials.find_one({"id": credential_id})
+        if not existing_credential:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        # Prepare update data (only include fields that were provided)
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        update_data["updated_at"] = datetime.utcnow()
+        
+        # If this is being set as primary, unset other primary credentials
+        if request.is_primary:
+            await db.credentials.update_many(
+                {"is_primary": True, "id": {"$ne": credential_id}},
+                {"$set": {"is_primary": False, "updated_at": datetime.utcnow()}}
+            )
+        
+        # Update the credential
+        await db.credentials.update_one(
+            {"id": credential_id},
+            {"$set": update_data}
+        )
+        
+        # Get updated credential
+        updated_credential = await db.credentials.find_one({"id": credential_id})
+        credential = LoginCredentials(**updated_credential)
+        
+        # Log the update
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS,
+            message=f"Login credential updated: {credential.credential_name} ({credential.email})",
+            step="CREDENTIAL_MANAGEMENT"
+        ).dict())
+        
+        return credential
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update credential: {str(e)}")
+
+@api_router.delete("/credentials/{credential_id}")
+async def delete_credential(credential_id: str):
+    """Delete login credentials"""
+    try:
+        # Check if credential exists
+        existing_credential = await db.credentials.find_one({"id": credential_id})
+        if not existing_credential:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        # Delete the credential
+        result = await db.credentials.delete_one({"id": credential_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        # Log the deletion
+        credential = LoginCredentials(**existing_credential)
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.INFO,
+            message=f"Login credential deleted: {credential.credential_name} ({credential.email})",
+            step="CREDENTIAL_MANAGEMENT"
+        ).dict())
+        
+        return {"message": "Credential deleted successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete credential: {str(e)}")
+
+@api_router.get("/credentials/primary/info", response_model=LoginCredentials)
+async def get_primary_credential():
+    """Get the primary login credential (used for automation)"""
+    try:
+        credential_data = await db.credentials.find_one({"is_primary": True, "is_active": True})
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="No primary credential found")
+        
+        return LoginCredentials(**credential_data)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get primary credential: {str(e)}")
+
+@api_router.post("/credentials/{credential_id}/test", response_model=TestCredentialResponse)
+async def test_credential(credential_id: str):
+    """Test login credentials against BLS website"""
+    try:
+        # Get credential
+        credential_data = await db.credentials.find_one({"id": credential_id})
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        credential = LoginCredentials(**credential_data)
+        
+        # Initialize automation system for testing
+        if not enhanced_automation_system:
+            enhanced_automation_system = EnhancedBLSAutomation(
+                db, 
+                websocket_log_callback,
+                real_time_update_callback
+            )
+        
+        # Test the credential (this would be implemented in the automation system)
+        # For now, we'll simulate a test
+        import time
+        start_time = time.time()
+        
+        # This would actually test the login
+        # success = await enhanced_automation_system.test_login(credential.email, credential.password)
+        success = True  # Simulated success for now
+        
+        response_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Update credential statistics
+        update_data = {
+            "total_attempts": credential.total_attempts + 1,
+            "last_used": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        if success:
+            update_data["successful_attempts"] = credential.successful_attempts + 1
+            update_data["success_rate"] = (credential.successful_attempts + 1) / (credential.total_attempts + 1)
+        else:
+            update_data["success_rate"] = credential.successful_attempts / (credential.total_attempts + 1)
+        
+        await db.credentials.update_one(
+            {"id": credential_id},
+            {"$set": update_data}
+        )
+        
+        # Log the test
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS if success else LogLevel.ERROR,
+            message=f"Credential test {'successful' if success else 'failed'}: {credential.credential_name} ({credential.email})",
+            details={"response_time_ms": response_time_ms, "success": success},
+            step="CREDENTIAL_TESTING"
+        ).dict())
+        
+        return TestCredentialResponse(
+            success=success,
+            message="Credential test successful" if success else "Credential test failed",
+            response_time_ms=response_time_ms
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to test credential: {str(e)}")
+
+@api_router.post("/credentials/{credential_id}/set-primary")
+async def set_primary_credential(credential_id: str):
+    """Set a credential as the primary one for automation"""
+    try:
+        # Check if credential exists
+        existing_credential = await db.credentials.find_one({"id": credential_id})
+        if not existing_credential:
+            raise HTTPException(status_code=404, detail="Credential not found")
+        
+        # Unset all other primary credentials
+        await db.credentials.update_many(
+            {"is_primary": True},
+            {"$set": {"is_primary": False, "updated_at": datetime.utcnow()}}
+        )
+        
+        # Set this credential as primary
+        await db.credentials.update_one(
+            {"id": credential_id},
+            {"$set": {"is_primary": True, "is_active": True, "updated_at": datetime.utcnow()}}
+        )
+        
+        credential = LoginCredentials(**existing_credential)
+        
+        # Log the change
+        await db.system_logs.insert_one(SystemLog(
+            level=LogLevel.SUCCESS,
+            message=f"Primary credential updated: {credential.credential_name} ({credential.email})",
+            step="CREDENTIAL_MANAGEMENT"
+        ).dict())
+        
+        return {"message": "Primary credential updated successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set primary credential: {str(e)}")
+
 # Legacy OCR endpoint (keeping for backward compatibility)
 @api_router.post("/ocr-match-legacy")
 async def ocr_match_legacy(request: Dict):

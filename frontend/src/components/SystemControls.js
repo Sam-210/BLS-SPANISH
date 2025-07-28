@@ -154,6 +154,12 @@ const SystemControls = ({ systemStatus, onStatusUpdate }) => {
         </div>
       </div>
 
+      {/* Visa Configuration */}
+      <VisaConfiguration 
+        onConfigurationChange={handleVisaConfigChange}
+        initialConfig={systemConfig}
+      />
+
       {/* Control Panel */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">

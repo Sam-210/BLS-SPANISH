@@ -117,3 +117,113 @@ class LogsResponse(BaseModel):
 class AvailableSlotsResponse(BaseModel):
     slots: List[AppointmentSlot]
     total_count: int
+
+# New Models for User Features
+
+class ApplicantInfo(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    first_name: str
+    last_name: str
+    passport_number: str
+    nationality: str
+    phone_number: str
+    email: str
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    visa_type_preference: Optional[VisaType] = None
+    notes: Optional[str] = None
+    is_primary: bool = False  # For family applications
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class LoginCredentials(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    credential_name: str  # Friendly name for the credential set
+    email: str
+    password: str  # In production, this should be encrypted
+    is_active: bool = True
+    is_primary: bool = False  # Primary credential to use by default
+    last_used: Optional[datetime] = None
+    success_rate: Optional[float] = 0.0  # Track success rate for this credential
+    total_attempts: int = 0
+    successful_attempts: int = 0
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# API Request/Response Models for new features
+
+class CreateApplicantRequest(BaseModel):
+    first_name: str
+    last_name: str
+    passport_number: str
+    nationality: str
+    phone_number: str
+    email: str
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    visa_type_preference: Optional[VisaType] = None
+    notes: Optional[str] = None
+    is_primary: bool = False
+
+class UpdateApplicantRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    passport_number: Optional[str] = None
+    nationality: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    visa_type_preference: Optional[VisaType] = None
+    notes: Optional[str] = None
+    is_primary: Optional[bool] = None
+
+class ApplicantsResponse(BaseModel):
+    applicants: List[ApplicantInfo]
+    total_count: int
+
+class CreateCredentialRequest(BaseModel):
+    credential_name: str
+    email: str
+    password: str
+    is_primary: bool = False
+    notes: Optional[str] = None
+
+class UpdateCredentialRequest(BaseModel):
+    credential_name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
+
+class CredentialsResponse(BaseModel):
+    credentials: List[LoginCredentials]
+    total_count: int
+
+class TestCredentialRequest(BaseModel):
+    credential_id: str
+
+class TestCredentialResponse(BaseModel):
+    success: bool
+    message: str
+    response_time_ms: Optional[int] = None

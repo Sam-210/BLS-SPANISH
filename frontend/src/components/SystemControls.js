@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import VisaConfiguration from './VisaConfiguration';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -8,17 +9,54 @@ const SystemControls = ({ systemStatus, onStatusUpdate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [checkInterval, setCheckInterval] = useState(2);
   const [showConfirmStop, setShowConfirmStop] = useState(false);
+  const [systemConfig, setSystemConfig] = useState(null);
+  const [visaConfig, setVisaConfig] = useState({
+    visa_type: 'Tourist Visa',
+    visa_subtype: 'Short Stay',
+    appointment_type: 'Individual',
+    number_of_members: 1
+  });
+
+  useEffect(() => {
+    fetchSystemConfig();
+  }, []);
+
+  const fetchSystemConfig = async () => {
+    try {
+      const response = await axios.get(`${API}/system/config`);
+      setSystemConfig(response.data);
+      
+      // Update visa config if available
+      if (response.data) {
+        setVisaConfig({
+          visa_type: response.data.visa_type || 'Tourist Visa',
+          visa_subtype: response.data.visa_subtype || 'Short Stay',
+          appointment_type: response.data.appointment_type || 'Individual',
+          number_of_members: response.data.number_of_members || 1
+        });
+        setCheckInterval(response.data.check_interval_minutes || 2);
+      }
+    } catch (error) {
+      console.error('Failed to fetch system config:', error);
+    }
+  };
+
+  const handleVisaConfigChange = (newConfig) => {
+    setVisaConfig(newConfig);
+  };
 
   const startSystem = async () => {
     try {
       setIsLoading(true);
       const response = await axios.post(`${API}/system/start`, {
-        check_interval_minutes: checkInterval
+        check_interval_minutes: checkInterval,
+        ...visaConfig
       });
       
       if (response.status === 200) {
         alert('System started successfully! 🚀');
         onStatusUpdate();
+        fetchSystemConfig(); // Refresh config
       }
     } catch (error) {
       console.error('Failed to start system:', error);

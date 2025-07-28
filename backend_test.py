@@ -373,6 +373,458 @@ class BLSBackendTester:
         except Exception as e:
             self.log_test("OCR Endpoint", False, f"Exception: {str(e)}")
 
+    # =============================================================================
+    # APPLICANT MANAGEMENT API TESTS - NEW FEATURES
+    # =============================================================================
+    
+    def test_create_applicant(self):
+        """Test POST /api/applicants - create new applicant"""
+        try:
+            # Test data with realistic information
+            test_applicant = {
+                "first_name": "Maria",
+                "last_name": "Rodriguez",
+                "passport_number": "ES123456789",
+                "nationality": "Spanish",
+                "phone_number": "+34612345678",
+                "email": "maria.rodriguez@email.com",
+                "date_of_birth": "1990-05-15",
+                "gender": "Female",
+                "address": "Calle Mayor 123",
+                "city": "Madrid",
+                "postal_code": "28001",
+                "country": "Spain",
+                "emergency_contact": "Carlos Rodriguez",
+                "emergency_phone": "+34612345679",
+                "visa_type_preference": "Tourist Visa",
+                "notes": "First time applicant",
+                "is_primary": True
+            }
+            
+            response = self.session.post(f"{API_URL}/applicants", json=test_applicant)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify all required fields are present
+                required_fields = ["id", "first_name", "last_name", "passport_number", "nationality", 
+                                 "phone_number", "email", "is_primary", "created_at", "updated_at"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Create Applicant", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    # Verify data integrity
+                    if (data["first_name"] == test_applicant["first_name"] and 
+                        data["passport_number"] == test_applicant["passport_number"] and
+                        data["is_primary"] == test_applicant["is_primary"]):
+                        
+                        # Store applicant ID for later tests
+                        self.test_applicant_id = data["id"]
+                        self.log_test("Create Applicant", True, 
+                                    f"Created applicant: {data['first_name']} {data['last_name']} "
+                                    f"({data['passport_number']}) - Primary: {data['is_primary']}", data)
+                    else:
+                        self.log_test("Create Applicant", False, "Data integrity check failed", data)
+            else:
+                self.log_test("Create Applicant", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Create Applicant", False, f"Exception: {str(e)}")
+
+    def test_get_all_applicants(self):
+        """Test GET /api/applicants - fetch all applicants"""
+        try:
+            response = self.session.get(f"{API_URL}/applicants?limit=10")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "applicants" in data and "total_count" in data:
+                    applicants = data["applicants"]
+                    if isinstance(applicants, list):
+                        self.log_test("Get All Applicants", True, 
+                                    f"Retrieved {len(applicants)} applicants, Total: {data['total_count']}", 
+                                    {"applicant_count": len(applicants), "total_count": data["total_count"]})
+                    else:
+                        self.log_test("Get All Applicants", False, "Applicants is not a list", data)
+                else:
+                    self.log_test("Get All Applicants", False, "Missing required fields", data)
+            else:
+                self.log_test("Get All Applicants", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get All Applicants", False, f"Exception: {str(e)}")
+
+    def test_get_specific_applicant(self):
+        """Test GET /api/applicants/{id} - fetch specific applicant"""
+        try:
+            if not hasattr(self, 'test_applicant_id'):
+                self.log_test("Get Specific Applicant", False, "No test applicant ID available")
+                return
+                
+            response = self.session.get(f"{API_URL}/applicants/{self.test_applicant_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                required_fields = ["id", "first_name", "last_name", "passport_number"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Get Specific Applicant", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    if data["id"] == self.test_applicant_id:
+                        self.log_test("Get Specific Applicant", True, 
+                                    f"Retrieved applicant: {data['first_name']} {data['last_name']}", data)
+                    else:
+                        self.log_test("Get Specific Applicant", False, "ID mismatch", data)
+            else:
+                self.log_test("Get Specific Applicant", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get Specific Applicant", False, f"Exception: {str(e)}")
+
+    def test_update_applicant(self):
+        """Test PUT /api/applicants/{id} - update applicant information"""
+        try:
+            if not hasattr(self, 'test_applicant_id'):
+                self.log_test("Update Applicant", False, "No test applicant ID available")
+                return
+                
+            # Update data
+            update_data = {
+                "phone_number": "+34612345680",
+                "city": "Barcelona",
+                "notes": "Updated contact information"
+            }
+            
+            response = self.session.put(f"{API_URL}/applicants/{self.test_applicant_id}", json=update_data)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify updates were applied
+                if (data["phone_number"] == update_data["phone_number"] and 
+                    data["city"] == update_data["city"] and
+                    data["notes"] == update_data["notes"]):
+                    self.log_test("Update Applicant", True, 
+                                f"Updated applicant: {data['first_name']} {data['last_name']} - "
+                                f"New phone: {data['phone_number']}, City: {data['city']}", data)
+                else:
+                    self.log_test("Update Applicant", False, "Update verification failed", data)
+            else:
+                self.log_test("Update Applicant", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Update Applicant", False, f"Exception: {str(e)}")
+
+    def test_get_primary_applicant(self):
+        """Test GET /api/applicants/primary/info - get primary applicant"""
+        try:
+            response = self.session.get(f"{API_URL}/applicants/primary/info")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                required_fields = ["id", "first_name", "last_name", "is_primary"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Get Primary Applicant", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    if data["is_primary"]:
+                        self.log_test("Get Primary Applicant", True, 
+                                    f"Primary applicant: {data['first_name']} {data['last_name']}", data)
+                    else:
+                        self.log_test("Get Primary Applicant", False, "Returned applicant is not primary", data)
+            elif response.status_code == 404:
+                self.log_test("Get Primary Applicant", True, "No primary applicant found (expected)", None)
+            else:
+                self.log_test("Get Primary Applicant", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get Primary Applicant", False, f"Exception: {str(e)}")
+
+    # =============================================================================
+    # LOGIN CREDENTIALS MANAGEMENT API TESTS - NEW FEATURES
+    # =============================================================================
+    
+    def test_create_credential(self):
+        """Test POST /api/credentials - create new login credential"""
+        try:
+            # Test data with realistic information
+            test_credential = {
+                "credential_name": "Primary BLS Account",
+                "email": "maria.rodriguez@email.com",
+                "password": "SecurePassword123!",
+                "is_primary": True,
+                "notes": "Main account for automation"
+            }
+            
+            response = self.session.post(f"{API_URL}/credentials", json=test_credential)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify all required fields are present
+                required_fields = ["id", "credential_name", "email", "is_active", "is_primary", 
+                                 "success_rate", "total_attempts", "successful_attempts", "created_at", "updated_at"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Create Credential", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    # Verify data integrity
+                    if (data["credential_name"] == test_credential["credential_name"] and 
+                        data["email"] == test_credential["email"] and
+                        data["is_primary"] == test_credential["is_primary"]):
+                        
+                        # Store credential ID for later tests
+                        self.test_credential_id = data["id"]
+                        self.log_test("Create Credential", True, 
+                                    f"Created credential: {data['credential_name']} ({data['email']}) - "
+                                    f"Primary: {data['is_primary']}, Active: {data['is_active']}", data)
+                    else:
+                        self.log_test("Create Credential", False, "Data integrity check failed", data)
+            else:
+                self.log_test("Create Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Create Credential", False, f"Exception: {str(e)}")
+
+    def test_get_all_credentials(self):
+        """Test GET /api/credentials - fetch all credentials"""
+        try:
+            response = self.session.get(f"{API_URL}/credentials?limit=10")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "credentials" in data and "total_count" in data:
+                    credentials = data["credentials"]
+                    if isinstance(credentials, list):
+                        self.log_test("Get All Credentials", True, 
+                                    f"Retrieved {len(credentials)} credentials, Total: {data['total_count']}", 
+                                    {"credential_count": len(credentials), "total_count": data["total_count"]})
+                    else:
+                        self.log_test("Get All Credentials", False, "Credentials is not a list", data)
+                else:
+                    self.log_test("Get All Credentials", False, "Missing required fields", data)
+            else:
+                self.log_test("Get All Credentials", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get All Credentials", False, f"Exception: {str(e)}")
+
+    def test_get_specific_credential(self):
+        """Test GET /api/credentials/{id} - fetch specific credential"""
+        try:
+            if not hasattr(self, 'test_credential_id'):
+                self.log_test("Get Specific Credential", False, "No test credential ID available")
+                return
+                
+            response = self.session.get(f"{API_URL}/credentials/{self.test_credential_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                required_fields = ["id", "credential_name", "email", "is_active", "is_primary"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Get Specific Credential", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    if data["id"] == self.test_credential_id:
+                        self.log_test("Get Specific Credential", True, 
+                                    f"Retrieved credential: {data['credential_name']} ({data['email']})", data)
+                    else:
+                        self.log_test("Get Specific Credential", False, "ID mismatch", data)
+            else:
+                self.log_test("Get Specific Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get Specific Credential", False, f"Exception: {str(e)}")
+
+    def test_update_credential(self):
+        """Test PUT /api/credentials/{id} - update credential information"""
+        try:
+            if not hasattr(self, 'test_credential_id'):
+                self.log_test("Update Credential", False, "No test credential ID available")
+                return
+                
+            # Update data
+            update_data = {
+                "credential_name": "Updated Primary BLS Account",
+                "notes": "Updated account information"
+            }
+            
+            response = self.session.put(f"{API_URL}/credentials/{self.test_credential_id}", json=update_data)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify updates were applied
+                if (data["credential_name"] == update_data["credential_name"] and 
+                    data["notes"] == update_data["notes"]):
+                    self.log_test("Update Credential", True, 
+                                f"Updated credential: {data['credential_name']} ({data['email']})", data)
+                else:
+                    self.log_test("Update Credential", False, "Update verification failed", data)
+            else:
+                self.log_test("Update Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Update Credential", False, f"Exception: {str(e)}")
+
+    def test_get_primary_credential(self):
+        """Test GET /api/credentials/primary/info - get primary credential"""
+        try:
+            response = self.session.get(f"{API_URL}/credentials/primary/info")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                required_fields = ["id", "credential_name", "email", "is_primary", "is_active"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Get Primary Credential", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    if data["is_primary"] and data["is_active"]:
+                        self.log_test("Get Primary Credential", True, 
+                                    f"Primary credential: {data['credential_name']} ({data['email']})", data)
+                    else:
+                        self.log_test("Get Primary Credential", False, 
+                                    f"Credential not primary/active: Primary={data['is_primary']}, Active={data['is_active']}", data)
+            elif response.status_code == 404:
+                self.log_test("Get Primary Credential", True, "No primary credential found (expected)", None)
+            else:
+                self.log_test("Get Primary Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Get Primary Credential", False, f"Exception: {str(e)}")
+
+    def test_set_primary_credential(self):
+        """Test POST /api/credentials/{id}/set-primary - set credential as primary"""
+        try:
+            if not hasattr(self, 'test_credential_id'):
+                self.log_test("Set Primary Credential", False, "No test credential ID available")
+                return
+                
+            response = self.session.post(f"{API_URL}/credentials/{self.test_credential_id}/set-primary")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "message" in data and "successfully" in data["message"].lower():
+                    self.log_test("Set Primary Credential", True, data["message"], data)
+                    
+                    # Verify by getting the credential
+                    verify_response = self.session.get(f"{API_URL}/credentials/{self.test_credential_id}")
+                    if verify_response.status_code == 200:
+                        verify_data = verify_response.json()
+                        if verify_data.get("is_primary"):
+                            self.log_test("Verify Primary Credential Set", True, 
+                                        f"Credential is now primary: {verify_data['credential_name']}", verify_data)
+                        else:
+                            self.log_test("Verify Primary Credential Set", False, "Credential is not primary", verify_data)
+                else:
+                    self.log_test("Set Primary Credential", False, "Invalid response format", data)
+            else:
+                self.log_test("Set Primary Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Set Primary Credential", False, f"Exception: {str(e)}")
+
+    def test_credential_functionality(self):
+        """Test POST /api/credentials/{id}/test - test credential functionality"""
+        try:
+            if not hasattr(self, 'test_credential_id'):
+                self.log_test("Test Credential Functionality", False, "No test credential ID available")
+                return
+                
+            response = self.session.post(f"{API_URL}/credentials/{self.test_credential_id}/test")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                required_fields = ["success", "message", "response_time_ms"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Test Credential Functionality", False, f"Missing fields: {missing_fields}", data)
+                else:
+                    if isinstance(data["response_time_ms"], int) and data["response_time_ms"] >= 0:
+                        self.log_test("Test Credential Functionality", True, 
+                                    f"Credential test completed: Success={data['success']}, "
+                                    f"Response time: {data['response_time_ms']}ms", data)
+                    else:
+                        self.log_test("Test Credential Functionality", False, "Invalid response time", data)
+            else:
+                self.log_test("Test Credential Functionality", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Test Credential Functionality", False, f"Exception: {str(e)}")
+
+    def test_delete_applicant(self):
+        """Test DELETE /api/applicants/{id} - delete applicant (cleanup)"""
+        try:
+            if not hasattr(self, 'test_applicant_id'):
+                self.log_test("Delete Applicant", False, "No test applicant ID available")
+                return
+                
+            response = self.session.delete(f"{API_URL}/applicants/{self.test_applicant_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "message" in data and "successfully" in data["message"].lower():
+                    self.log_test("Delete Applicant", True, data["message"], data)
+                    
+                    # Verify deletion by trying to get the applicant
+                    verify_response = self.session.get(f"{API_URL}/applicants/{self.test_applicant_id}")
+                    if verify_response.status_code == 404:
+                        self.log_test("Verify Applicant Deletion", True, "Applicant successfully deleted", None)
+                    else:
+                        self.log_test("Verify Applicant Deletion", False, "Applicant still exists", None)
+                else:
+                    self.log_test("Delete Applicant", False, "Invalid response format", data)
+            else:
+                self.log_test("Delete Applicant", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Delete Applicant", False, f"Exception: {str(e)}")
+
+    def test_delete_credential(self):
+        """Test DELETE /api/credentials/{id} - delete credential (cleanup)"""
+        try:
+            if not hasattr(self, 'test_credential_id'):
+                self.log_test("Delete Credential", False, "No test credential ID available")
+                return
+                
+            response = self.session.delete(f"{API_URL}/credentials/{self.test_credential_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "message" in data and "successfully" in data["message"].lower():
+                    self.log_test("Delete Credential", True, data["message"], data)
+                    
+                    # Verify deletion by trying to get the credential
+                    verify_response = self.session.get(f"{API_URL}/credentials/{self.test_credential_id}")
+                    if verify_response.status_code == 404:
+                        self.log_test("Verify Credential Deletion", True, "Credential successfully deleted", None)
+                    else:
+                        self.log_test("Verify Credential Deletion", False, "Credential still exists", None)
+                else:
+                    self.log_test("Delete Credential", False, "Invalid response format", data)
+            else:
+                self.log_test("Delete Credential", False, f"HTTP {response.status_code}", response.text)
+                
+        except Exception as e:
+            self.log_test("Delete Credential", False, f"Exception: {str(e)}")
+
     def run_all_tests(self):
         """Run all backend tests"""
         print(f"🚀 Starting BLS-SPANISH Backend API Tests")

@@ -71,6 +71,26 @@ const Header = ({ systemStatus, isConnected, onToggleRealTimePanel, showRealTime
               Appointments
             </Link>
             <Link 
+              to="/applicants" 
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/applicants') 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Applicants
+            </Link>
+            <Link 
+              to="/credentials" 
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/credentials') 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Credentials
+            </Link>
+            <Link 
               to="/logs" 
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive('/logs') 

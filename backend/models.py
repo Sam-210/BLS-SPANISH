@@ -69,6 +69,10 @@ class SystemConfig(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     status: SystemStatus = SystemStatus.STOPPED
     check_interval_minutes: int = 2
+    visa_type: VisaType = VisaType.TOURIST
+    visa_subtype: VisaSubType = VisaSubType.SHORT_STAY
+    appointment_type: AppointmentType = AppointmentType.INDIVIDUAL
+    number_of_members: int = 1
     last_check: Optional[datetime] = None
     total_checks: int = 0
     slots_found: int = 0

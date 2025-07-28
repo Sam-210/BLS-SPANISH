@@ -288,7 +288,25 @@ const SystemControls = ({ systemStatus, onStatusUpdate }) => {
       {/* Configuration Info */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">System Configuration</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="font-medium text-gray-700">Current Visa Type:</p>
+            <p className="text-gray-600">{systemConfig?.visa_type || 'Tourist Visa'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-700">Visa Subtype:</p>
+            <p className="text-gray-600">{systemConfig?.visa_subtype || 'Short Stay'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-700">Appointment Type:</p>
+            <p className="text-gray-600">{systemConfig?.appointment_type || 'Individual'}</p>
+          </div>
+          {systemConfig?.appointment_type === 'Family' && (
+            <div>
+              <p className="font-medium text-gray-700">Number of Members:</p>
+              <p className="text-gray-600">{systemConfig?.number_of_members || 1}</p>
+            </div>
+          )}
           <div>
             <p className="font-medium text-gray-700">BLS Website:</p>
             <p className="text-gray-600">algeria.blsspainglobal.com</p>

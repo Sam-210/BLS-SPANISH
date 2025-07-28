@@ -10,6 +10,8 @@ import AppointmentSlots from './components/AppointmentSlots';
 import SystemLogs from './components/SystemLogs';
 import Header from './components/Header';
 import RealTimePanel from './components/RealTimePanel';
+import ApplicantManagement from './components/ApplicantManagement';
+import CredentialsManagement from './components/CredentialsManagement';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;

@@ -22,6 +22,28 @@ class AppointmentStatus(str, Enum):
     FAILED = "failed"
     PENDING = "pending"
 
+class VisaType(str, Enum):
+    TOURIST = "Tourist Visa"
+    BUSINESS = "Business Visa"
+    STUDENT = "Student Visa"
+    WORK = "Work Visa"
+    FAMILY_REUNION = "Family Reunion Visa"
+
+class VisaSubType(str, Enum):
+    # Tourist/Business/Student subtypes
+    SHORT_STAY = "Short Stay"
+    LONG_STAY = "Long Stay"
+    # Work subtypes  
+    TEMPORARY_WORK = "Temporary Work"
+    PERMANENT_WORK = "Permanent Work"
+    # Family subtypes
+    SPOUSE_VISA = "Spouse Visa"
+    CHILD_VISA = "Child Visa"
+
+class AppointmentType(str, Enum):
+    INDIVIDUAL = "Individual"
+    FAMILY = "Family"
+
 # Database Models
 class SystemLog(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
